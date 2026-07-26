@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>DE ORB — Passive Counter-UAS Intelligence</title>
+<meta name="description" content="DE ORB is a European passive multi-sensor counter-UAS platform. Detect without being detected." />
+<style>
+/* ============ DESIGN TOKENS ============ */
+:root{
+  --base:#0A0C10;
+  --surface:#12151C;
+  --ink:#EDEFF2;
+  --muted:#9AA3AF;
+  --amber:#F5A524;
+  --line:rgba(255,255,255,.06);
+  --line-2:rgba(255,255,255,.10);
+  --max:1200px;
+  color-scheme:dark;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  background:var(--base);
+  color:var(--muted);
+  font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  -webkit-font-smoothing:antialiased;
+  line-height:1.5;
+  overflow-x:hidden;
+}
+a{color:inherit;text-decoration:none}
+::selection{background:rgba(245,165,36,.3);color:var(--ink)}
+.wrap{max-width:var(--max);margin:0 auto;padding:0 24px}
+@media(min-width:1024px){.wrap{padding:0 32px}}
+
+/* scrollbar */
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:var(--base)}
+::-webkit-scrollbar-thumb{background:#1c212b;border-radius:8px}
+::-webkit-scrollbar-thumb:hover{background:#262d3a}
+
+/* ============ REVEAL ============ */
+.reveal{opacity:0;transform:translateY(28px);transition:opacity .9s cubic-bezier(.16,1,.3,1),transform .9s cubic-bezier(.16,1,.3,1)}
+.reveal.in{opacity:1;transform:none}
+
+/* ============ NAV ============ */
+.nav{position:fixed;top:0;left:0;right:0;z-index:50;transition:background .5s,border-color .5s;border-bottom:1px solid transparent}
+.nav.solid{background:rgba(10,12,16,.95);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.nav-inner{display:flex;align-items:center;justify-content:space-between;height:64px}
+.wordmark{display:flex;align-items:center;gap:8px;color:var(--ink);font-weight:600;letter-spacing:.28em;font-size:13px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--amber);box-shadow:0 0 12px 2px rgba(245,165,36,.6)}
+.nav-links{display:none;gap:36px}
+.nav-links a{font-size:14px;color:var(--muted);transition:color .3s}
+.nav-links a:hover{color:var(--ink)}
+.btn-outline{display:inline-flex;align-items:center;border:1px solid rgba(245,165,36,.7);color:var(--amber);padding:8px 16px;font-size:14px;font-weight:500;border-radius:2px;transition:background .3s,color .3s}
+.btn-outline:hover{background:var(--amber);color:var(--base)}
+.nav-cta{display:none}
+.burger{display:inline-flex;flex-direction:column;gap:6px;background:none;border:none;cursor:pointer;padding:8px}
+.burger span{display:block;width:24px;height:1px;background:var(--ink);transition:.3s}
+.burger.open span:nth-child(1){transform:translateY(7px) rotate(45deg)}
+.burger.open span:nth-child(2){opacity:0}
+.burger.open span:nth-child(3){transform:translateY(-7px) rotate(-45deg)}
+.mobile-menu{display:none;background:rgba(10,12,16,.98);backdrop-filter:blur(8px);border-top:1px solid var(--line);padding:24px}
+.mobile-menu.show{display:block}
+.mobile-menu a{display:block;color:var(--muted);padding:10px 0;transition:color .3s}
+.mobile-menu a:hover{color:var(--ink)}
+.mobile-menu .btn-outline{margin-top:12px}
+@media(min-width:768px){
+  .nav-links{display:flex}
+  .nav-cta{display:block}
+  .burger{display:none}
+}
+
+/* ============ HERO ============ */
+.hero{position:relative;min-height:100vh;display:flex;align-items:center;overflow:hidden}
+.video-ready{position:absolute;inset:0;overflow:hidden;background:var(--base)}
+.video-ready .slot{position:absolute;inset:0;background-size:cover;background-position:center}
+/* real MP4 drop-in: add <video class="media"> inside .slot */
+.media{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+
+.radar-stage{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
+.radar{position:relative;width:130vmin;height:130vmin;opacity:.9}
+.radar .circle{position:absolute;inset:0;border-radius:50%;border:1px solid rgba(255,255,255,.05)}
+.radar .sweep{position:absolute;inset:0;border-radius:50%;
+  background:conic-gradient(from 0deg,rgba(245,165,36,0) 0deg,rgba(245,165,36,0) 300deg,rgba(245,165,36,.05) 340deg,rgba(245,165,36,.22) 358deg,rgba(245,165,36,.32) 360deg);
+  -webkit-mask:radial-gradient(closest-side,#000 0,#000 99%,transparent 100%);
+  mask:radial-gradient(closest-side,#000 0,#000 99%,transparent 100%);
+  animation:spin 7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.ring{position:absolute;inset:0;border-radius:50%;border:1px solid rgba(245,165,36,.35);animation:pulse 6s ease-out infinite}
+@keyframes pulse{0%{transform:scale(.35);opacity:.55}70%{opacity:.12}100%{transform:scale(1);opacity:0}}
+.cross-v{position:absolute;left:50%;top:0;height:100%;width:1px;background:rgba(255,255,255,.04)}
+.cross-h{position:absolute;top:50%;left:0;width:100%;height:1px;background:rgba(255,255,255,.04)}
+.core{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:10px;height:10px;border-radius:50%;background:var(--amber);box-shadow:0 0 20px 4px rgba(245,165,36,.55)}
+.hero-vignette{position:absolute;inset:0;background:radial-gradient(120% 80% at 50% 30%,rgba(10,12,16,0) 30%,var(--base) 90%)}
+.hero-fade{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(10,12,16,.4),rgba(10,12,16,.2),var(--base))}
+.hero-inner{position:relative;width:100%;padding:112px 0 80px}
+.eyebrow{font-size:12px;font-weight:500;letter-spacing:.32em;color:var(--amber);margin-bottom:24px}
+h1{color:var(--ink);font-weight:600;font-size:clamp(44px,8vw,84px);line-height:1.02;letter-spacing:-.02em}
+.subhead{margin-top:32px;font-size:clamp(17px,2.2vw,21px);color:var(--muted);max-width:640px;line-height:1.6}
+.hero-cta{margin-top:40px;display:flex;flex-direction:column;gap:16px}
+@media(min-width:640px){.hero-cta{flex-direction:row}}
+.btn-amber{display:inline-flex;justify-content:center;align-items:center;background:var(--amber);color:var(--base);padding:14px 28px;font-size:14px;font-weight:600;border-radius:2px;border:none;cursor:pointer;transition:background .3s}
+.btn-amber:hover{background:#e39a1f}
+.btn-ghost{display:inline-flex;justify-content:center;align-items:center;border:1px solid var(--line-2);color:var(--ink);padding:14px 28px;font-size:14px;font-weight:500;border-radius:2px;transition:border-color .3s}
+.btn-ghost:hover{border-color:rgba(255,255,255,.4)}
+.hero-max{max-width:768px}
+.scroll-cue{position:absolute;bottom:32px;left:50%;transform:translateX(-50%);color:rgba(154,163,175,.6);font-size:10px;letter-spacing:.3em}
+
+/* ============ SECTIONS ============ */
+section{position:relative}
+.bordered{border-top:1px solid var(--line)}
+.pad{padding:96px 0}
+@media(min-width:640px){.pad{padding:112px 0}}
+.label{font-size:12px;letter-spacing:.3em;color:var(--amber)}
+
+/* positioning */
+.pos{padding:112px 0}
+@media(min-width:640px){.pos{padding:144px 0}}
+.pos p{max-width:900px;margin:0 auto;text-align:center;font-size:clamp(24px,3.4vw,40px);color:var(--ink);font-weight:300;line-height:1.35;letter-spacing:-.01em}
+.pos .soft{color:var(--muted)}
+
+/* capabilities */
+.caps{border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.cap{display:grid;grid-template-columns:1fr;gap:16px;padding:32px 0;border-top:1px solid var(--line);align-items:baseline}
+.cap:first-child{border-top:none}
+.cap .num{color:rgba(245,165,36,.8);font-size:14px;letter-spacing:.15em;font-family:ui-monospace,Menlo,monospace}
+.cap h3{color:var(--ink);font-weight:500;font-size:clamp(20px,2.6vw,26px);letter-spacing:-.01em}
+.cap p{color:var(--muted);line-height:1.6}
+@media(min-width:768px){
+  .cap{grid-template-columns:60px 4fr 6fr;gap:32px;padding:36px 0}
+}
+
+/* solutions */
+.grid-2{display:grid;grid-template-columns:1fr;gap:20px}
+@media(min-width:640px){.grid-2{grid-template-columns:1fr 1fr}}
+.card{position:relative;overflow:hidden;background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:40px;transition:transform .5s,border-color .5s,box-shadow .5s}
+.card:hover{transform:translateY(-6px);border-color:var(--line-2);box-shadow:0 30px 60px -20px rgba(0,0,0,.5)}
+.card .topline{position:absolute;top:0;left:0;height:1px;width:0;background:var(--amber);transition:width .5s}
+.card:hover .topline{width:100%}
+.card h3{color:var(--ink);font-weight:500;font-size:20px;letter-spacing:-.01em}
+.card p{margin-top:16px;color:var(--muted);line-height:1.6}
+.card .more{margin-top:32px;display:inline-block;font-size:14px;letter-spacing:.02em;color:transparent;transition:color .5s}
+.card:hover .more{color:var(--amber)}
+.section-head{max-width:640px;margin-bottom:56px}
+.section-head h2{margin-top:20px;color:var(--ink);font-weight:600;font-size:clamp(28px,4vw,40px);letter-spacing:-.02em}
+
+/* how it works */
+.steps-wrap{position:relative}
+.steps-line{display:none;position:absolute;top:22px;left:8%;right:8%;height:1px;background:linear-gradient(to right,rgba(245,165,36,0),rgba(245,165,36,.5),rgba(245,165,36,0))}
+.steps{display:grid;grid-template-columns:1fr;gap:48px}
+@media(min-width:768px){.steps{grid-template-columns:repeat(3,1fr);gap:32px}.steps-line{display:block}}
+.step{position:relative;text-align:center}
+@media(min-width:768px){.step{text-align:left}}
+.step .badge{position:relative;z-index:2;display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:50%;border:1px solid rgba(245,165,36,.5);background:var(--base);color:var(--amber);font-size:14px;font-family:ui-monospace,Menlo,monospace}
+.step h3{margin-top:24px;color:var(--ink);font-weight:500;font-size:24px;letter-spacing:-.01em}
+.step p{margin-top:12px;color:var(--muted);line-height:1.6;max-width:280px;margin-left:auto;margin-right:auto}
+@media(min-width:768px){.step p{margin-left:0}}
+
+/* trust */
+.trust{position:relative;overflow:hidden}
+.trust-grid{display:grid;grid-template-columns:1fr 1fr;gap:56px 32px}
+@media(min-width:1024px){.trust-grid{grid-template-columns:repeat(4,1fr)}}
+.stat .big{font-size:clamp(44px,6vw,64px);color:var(--amber);font-weight:600;letter-spacing:-.02em;line-height:1}
+.stat .unit{margin-top:12px;font-size:12px;color:rgba(154,163,175,.7);letter-spacing:.02em}
+.stat .lab{margin-top:16px;color:var(--ink);font-weight:500;font-size:15px}
+
+/* contact */
+.contact{position:relative;overflow:hidden;background:var(--surface);border-top:1px solid var(--line);padding:96px 0}
+@media(min-width:640px){.contact{padding:128px 0}}
+.worldmap{position:absolute;inset:0;width:100%;height:100%;opacity:.06;object-fit:cover}
+.contact-grid{position:relative;display:grid;grid-template-columns:1fr;gap:56px}
+@media(min-width:1024px){.contact-grid{grid-template-columns:1fr 1fr;gap:80px;align-items:start}}
+.contact h2{color:var(--ink);font-weight:600;font-size:clamp(34px,5vw,52px);letter-spacing:-.02em;line-height:1.05}
+.contact .lead{margin-top:24px;font-size:18px;color:var(--muted);max-width:440px;line-height:1.6}
+.rule{margin-top:40px;height:1px;width:96px;background:rgba(245,165,36,.5)}
+form{display:flex;flex-direction:column;gap:20px}
+.row{display:grid;grid-template-columns:1fr;gap:20px}
+@media(min-width:640px){.row{grid-template-columns:1fr 1fr}}
+label{display:block;font-size:12px;color:var(--muted);margin-bottom:8px;letter-spacing:.02em}
+input,textarea{width:100%;border-radius:2px;background:rgba(10,12,16,.6);border:1px solid var(--line-2);padding:12px 16px;color:var(--ink);font:inherit;transition:border-color .3s,box-shadow .3s}
+input::placeholder,textarea::placeholder{color:rgba(154,163,175,.5)}
+input:focus,textarea:focus{outline:none;border-color:rgba(245,165,36,.7);box-shadow:0 0 0 1px rgba(245,165,36,.4)}
+.sent{border:1px solid rgba(245,165,36,.3);background:rgba(10,12,16,.5);border-radius:6px;padding:40px;text-align:center}
+.sent .dot{margin:0 auto 16px}
+.sent h3{color:var(--ink);font-size:20px;font-weight:500}
+.sent p{margin-top:12px;color:var(--muted)}
+
+/* footer */
+footer{background:var(--base);border-top:1px solid var(--line)}
+.foot-inner{padding:56px 0}
+.foot-top{display:flex;flex-direction:column;gap:40px}
+@media(min-width:768px){.foot-top{flex-direction:row;align-items:center;justify-content:space-between}}
+.foot-links{display:flex;flex-wrap:wrap;gap:12px 32px}
+.foot-links a{font-size:14px;color:var(--muted);transition:color .3s}
+.foot-links a:hover{color:var(--ink)}
+.social{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:2px;border:1px solid var(--line-2);color:var(--muted);transition:color .3s,border-color .3s}
+.social:hover{color:var(--amber);border-color:rgba(245,165,36,.5)}
+.social svg{width:16px;height:16px;fill:currentColor}
+.copyright{margin-top:40px;padding-top:32px;border-top:1px solid var(--line);font-size:12px;color:rgba(154,163,175,.6)}
+
+@media(prefers-reduced-motion:reduce){
+  .sweep,.ring{animation:none}
+  .reveal{opacity:1;transform:none;transition:none}
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<header class="nav" id="nav">
+  <div class="wrap nav-inner">
+    <a href="#top" class="wordmark"><span class="dot"></span>DE&nbsp;ORB</a>
+    <nav class="nav-links">
+      <a href="#platform">Platform</a>
+      <a href="#solutions">Solutions</a>
+      <a href="#technology">Technology</a>
+      <a href="#company">Company</a>
+    </nav>
+    <div class="nav-cta"><a href="#contact" class="btn-outline">Request a Briefing</a></div>
+    <button class="burger" id="burger" aria-label="Menu"><span></span><span></span><span></span></button>
+  </div>
+  <div class="mobile-menu wrap" id="mobileMenu">
+    <a href="#platform">Platform</a>
+    <a href="#solutions">Solutions</a>
+    <a href="#technology">Technology</a>
+    <a href="#company">Company</a>
+    <a href="#contact" class="btn-outline">Request a Briefing</a>
+  </div>
+</header>
+
+<!-- HERO -->
+<section class="hero" id="top">
+  <div class="video-ready"><div class="slot" data-video-slot="true"></div></div>
+  <div class="radar-stage" aria-hidden="true">
+    <div class="radar">
+      <div class="circle" style="transform:scale(.28)"></div>
+      <div class="circle" style="transform:scale(.5)"></div>
+      <div class="circle" style="transform:scale(.72)"></div>
+      <div class="circle" style="transform:scale(.94)"></div>
+      <div class="ring" style="animation-delay:0s"></div>
+      <div class="ring" style="animation-delay:2s"></div>
+      <div class="ring" style="animation-delay:4s"></div>
+      <div class="sweep"></div>
+      <div class="cross-v"></div>
+      <div class="cross-h"></div>
+      <div class="core"></div>
+    </div>
+  </div>
+  <div class="hero-fade"></div>
+  <div class="hero-vignette"></div>
+  <div class="wrap hero-inner">
+    <div class="hero-max">
+      <p class="eyebrow reveal">PASSIVE COUNTER-UAS INTELLIGENCE</p>
+      <h1 class="reveal">See every threat.<br>Emit nothing.</h1>
+      <p class="subhead reveal">DE ORB fuses RF, acoustic and optical sensing into one silent layer of airspace awareness, built for contested skies over Europe's critical assets.</p>
+      <div class="hero-cta reveal">
+        <a href="#contact" class="btn-amber">Request a Briefing</a>
+        <a href="#platform" class="btn-ghost">Explore the Platform</a>
+      </div>
+    </div>
+  </div>
+  <div class="scroll-cue">SCROLL</div>
+</section>
+
+<!-- POSITIONING -->
+<section class="pos bordered" id="platform">
+  <div class="wrap">
+    <p class="reveal">Active radar tells the adversary exactly where you are.<span class="soft"> DE ORB doesn't.</span> We turn ambient signals into trusted airspace intelligence, while staying completely silent.</p>
+  </div>
+</section>
+
+<!-- CAPABILITIES -->
+<section class="pad" id="technology" style="background:var(--base)">
+  <div class="wrap">
+    <p class="label reveal" style="margin-bottom:56px">CAPABILITIES</p>
+    <div class="caps">
+      <div class="cap reveal"><div class="num">01</div><h3>Passive by design</h3><p>No emissions. Nothing for a threat to detect, jam or target.</p></div>
+      <div class="cap reveal"><div class="num">02</div><h3>Multi-sensor fusion</h3><p>RF, acoustic and EO-IR combined into a single confident track.</p></div>
+      <div class="cap reveal"><div class="num">03</div><h3>Autonomous classification</h3><p>AI separates real drone threats from birds, clutter and noise.</p></div>
+      <div class="cap reveal"><div class="num">04</div><h3>Sovereign and deployable</h3><p>Built in Europe. Rapid to install. No fixed infrastructure required.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- SOLUTIONS -->
+<section class="pad bordered" id="solutions">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <p class="label">SOLUTIONS</p>
+      <h2>One silent layer. Many contested skies.</h2>
+    </div>
+    <div class="grid-2">
+      <div class="card reveal"><span class="topline"></span><h3>Critical Infrastructure</h3><p>Persistent airspace awareness for energy, ports and data sites.</p><span class="more">Learn more &rarr;</span></div>
+      <div class="card reveal"><span class="topline"></span><h3>Defense &amp; Military</h3><p>Early warning of low, slow, small aerial threats at the tactical edge.</p><span class="more">Learn more &rarr;</span></div>
+      <div class="card reveal"><span class="topline"></span><h3>Borders &amp; Airfields</h3><p>Wide-area detection without lighting up the spectrum.</p><span class="more">Learn more &rarr;</span></div>
+      <div class="card reveal"><span class="topline"></span><h3>Public Events &amp; Venues</h3><p>Discreet drone monitoring for stadiums and mass gatherings.</p><span class="more">Learn more &rarr;</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="pad bordered" style="background:var(--base)">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <p class="label">HOW IT WORKS</p>
+      <h2>Sense. Fuse. Decide.</h2>
+    </div>
+    <div class="steps-wrap">
+      <div class="steps-line"></div>
+      <div class="steps">
+        <div class="step reveal"><span class="badge">01</span><h3>Sense</h3><p>Distributed passive nodes listen across RF, acoustic and optical.</p></div>
+        <div class="step reveal"><span class="badge">02</span><h3>Fuse</h3><p>Signals are correlated into a single real-time airspace picture.</p></div>
+        <div class="step reveal"><span class="badge">03</span><h3>Decide</h3><p>Operators get classified, actionable tracks in seconds.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TRUST -->
+<section class="trust pad bordered">
+  <div class="video-ready"><div class="slot" style="background:#0B0E13" data-video-slot="true"></div></div>
+  <div style="position:absolute;inset:0;background:rgba(10,12,16,.6)"></div>
+  <div class="wrap" style="position:relative">
+    <div class="trust-grid">
+      <div class="stat reveal"><div class="big">0</div><div class="unit">signals emitted</div><div class="lab">Silent operation</div></div>
+      <div class="stat reveal"><div class="big">3</div><div class="unit">sensing domains</div><div class="lab">Multi-domain sensing</div></div>
+      <div class="stat reveal"><div class="big">EU</div><div class="unit">built and owned</div><div class="lab">European sovereignty</div></div>
+      <div class="stat reveal"><div class="big">&lt;1</div><div class="unit">day to deploy</div><div class="lab">Rapid deployment</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- CONTACT -->
+<section class="contact" id="company">
+  <svg class="worldmap" viewBox="0 0 1000 500" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <defs><pattern id="dots" width="10" height="10" patternUnits="userSpaceOnUse"><circle cx="1.3" cy="1.3" r="1.3" fill="#EDEFF2"/></pattern></defs>
+    <path fill="url(#dots)" d="M120,120 Q180,90 240,110 Q300,130 320,180 Q300,230 250,240 Q190,250 150,220 Q110,180 120,120 Z M360,150 Q430,120 500,140 Q560,160 590,140 Q650,120 700,150 Q740,190 700,230 Q640,260 560,250 Q470,240 410,220 Q360,200 360,150 Z M470,270 Q520,260 540,310 Q560,380 530,430 Q500,470 470,430 Q450,360 460,310 Q465,285 470,270 Z M760,180 Q820,160 860,200 Q880,250 840,290 Q790,300 760,260 Q740,220 760,180 Z M820,330 Q860,320 880,350 Q890,390 860,410 Q825,410 815,375 Q810,350 820,330 Z"/>
+  </svg>
+  <div class="wrap">
+    <div class="contact-grid" id="contact">
+      <div class="reveal">
+        <p class="label">CONTACT</p>
+        <h2 style="margin-top:24px">Engage with DE ORB</h2>
+        <p class="lead">We work with defense, government and critical-infrastructure partners.</p>
+        <div class="rule"></div>
+      </div>
+      <div class="reveal">
+        <form id="briefForm">
+          <div class="row">
+            <div><label>Name</label><input required type="text" placeholder="Full name"></div>
+            <div><label>Work Email</label><input required type="email" placeholder="name@organization.eu"></div>
+          </div>
+          <div><label>Organization</label><input required type="text" placeholder="Organization"></div>
+          <div><label>Message</label><textarea rows="4" placeholder="How can we help?"></textarea></div>
+          <div><button type="submit" class="btn-amber">Submit</button></div>
+        </form>
+        <div class="sent" id="sentMsg" style="display:none">
+          <div class="dot"></div>
+          <h3>Request received.</h3>
+          <p>Our team will reach out to arrange a briefing.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="wrap foot-inner">
+    <div class="foot-top">
+      <a href="#top" class="wordmark"><span class="dot"></span>DE&nbsp;ORB</a>
+      <nav class="foot-links">
+        <a href="#platform">Platform</a>
+        <a href="#solutions">Solutions</a>
+        <a href="#technology">Technology</a>
+        <a href="#company">Company</a>
+        <a href="#contact">Contact</a>
+      </nav>
+      <a href="#" class="social" aria-label="LinkedIn">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.98 3.5A2.5 2.5 0 1 0 5 8.5a2.5 2.5 0 0 0-.02-5zM3 9h4v12H3zM10 9h3.8v1.7h.05c.53-1 1.83-2.05 3.77-2.05 4.03 0 4.78 2.65 4.78 6.1V21h-4v-5.3c0-1.26-.02-2.9-1.77-2.9-1.77 0-2.04 1.38-2.04 2.8V21h-4z"/></svg>
+      </a>
+    </div>
+    <div class="copyright">© 2026 DE ORB. All rights reserved.</div>
+  </div>
+</footer>
+
+<script>
+// nav solidify on scroll
+var nav=document.getElementById('nav');
+function onScroll(){nav.classList.toggle('solid',window.scrollY>24);}
+window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+// mobile menu
+var burger=document.getElementById('burger'),menu=document.getElementById('mobileMenu');
+burger.addEventListener('click',function(){burger.classList.toggle('open');menu.classList.toggle('show');});
+menu.querySelectorAll('a').forEach(function(a){a.addEventListener('click',function(){burger.classList.remove('open');menu.classList.remove('show');});});
+
+// reveal on scroll
+var io=new IntersectionObserver(function(entries){
+  entries.forEach(function(e){if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}});
+},{threshold:.15,rootMargin:'0px 0px -8% 0px'});
+document.querySelectorAll('.reveal').forEach(function(el){io.observe(el);});
+
+// form
+document.getElementById('briefForm').addEventListener('submit',function(e){
+  e.preventDefault();
+  this.style.display='none';
+  document.getElementById('sentMsg').style.display='block';
+});
+</script>
+</body>
+</html>
